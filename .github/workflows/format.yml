@@ -1,0 +1,19 @@
+name: format
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  go-format:
+    name: go fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Check go fmt
+        run: |
+          go fmt ./...
+          git diff --exit-code
