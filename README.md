@@ -2,8 +2,6 @@
 
 A GitHub CLI extension to interactively dispatch GitHub Actions workflows.
 
-![Demo](https://via.placeholder.com/800x400?text=Demo+Placeholder)
-
 ## Features
 
 - 🚀 **Interactive Selection**: Select workflows and branches using a modern TUI (Text User Interface).
