@@ -4,9 +4,7 @@ A GitHub CLI extension to interactively dispatch GitHub Actions workflows.
 
 ## Demo
 
-
-https://github.com/user-attachments/assets/9813e304-78b3-4c9e-8125-6e20b741e0bb
-
+https://github.com/user-attachments/assets/f4ee4d71-46a7-4cdd-9dec-04f42aafaab9
 
 ## Features
 
