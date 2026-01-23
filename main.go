@@ -308,7 +308,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("❌ Failed to dispatch: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				log.Println("failed to close body:", err)
+			}
+		}()
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			fmt.Println("✅ Successfully dispatched! Check your Actions tab.")
