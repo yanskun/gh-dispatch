@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -145,13 +146,22 @@ func main() {
 
 	owner, repo := repoInfo.Owner, repoInfo.Name
 
+	// リポジトリのルートパスを取得
+	rootPath := ""
+	if out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		rootPath = strings.TrimSpace(string(out))
+	} else {
+		log.Fatal("Could not determine repository root. Are you in a git-managed directory?")
+	}
+
 	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// 2. Workflow 一覧取得 (internalパッケージを使用)
-	wfs, err := workflow.LoadDispatchableWorkflows(".github/workflows")
+	workflowsDir := filepath.Join(rootPath, ".github", "workflows")
+	wfs, err := workflow.LoadDispatchableWorkflows(workflowsDir)
 	if err != nil {
 		log.Fatalf("Failed to scan workflows: %v", err)
 	}
