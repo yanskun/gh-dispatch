@@ -227,6 +227,7 @@ func main() {
 			log.Fatalf("❌ Failed to dispatch: %v", err)
 		}
 
-		fmt.Println("✅ Successfully dispatched! Check your Actions tab.")
+		fmt.Println("✅ Successfully dispatched!")
+		fmt.Printf("\nFor more information about the run, try:\n  gh run list --workflow=%s\n", workflowFile)
 	}
 }
