@@ -17,7 +17,7 @@ func (m *mockRESTClient) Get(path string, response interface{}) error {
 	if m.Error != nil {
 		return m.Error
 	}
-	
+
 	b, _ := json.Marshal(m.ResponseData)
 	return json.Unmarshal(b, response)
 }
@@ -46,11 +46,11 @@ func TestFetchBranches(t *testing.T) {
 			},
 		},
 		{
-			name:      "api error",
-			mockError: fmt.Errorf("api error"),
-			owner:     "user",
-			repo:      "repo",
-			want:      nil,
+			name:          "api error",
+			mockError:     fmt.Errorf("api error"),
+			owner:         "user",
+			repo:          "repo",
+			want:          nil,
 			wantErrString: "failed to fetch branches: api error",
 		},
 		{

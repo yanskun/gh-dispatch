@@ -18,7 +18,7 @@ type Branch struct {
 func FetchBranches(client RESTClient, owner, repo string) ([]Branch, error) {
 	var branches []Branch
 	path := fmt.Sprintf("repos/%s/%s/branches", owner, repo)
-	
+
 	err := client.Get(path, &branches)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch branches: %w", err)
