@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"path/filepath"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -15,8 +12,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/cli/go-gh/v2/pkg/repository"
-	"gopkg.in/yaml.v3"
-	"os/exec"
+	"github.com/yanskun/gh-dispatch/internal/branch"
+	"github.com/yanskun/gh-dispatch/internal/workflow"
 )
 
 // --- スタイル・型定義 ---
@@ -30,25 +27,6 @@ const (
 	confirming
 	executing
 )
-
-type Workflow struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
-type workflowYAML struct {
-	Name string      `yaml:"name"`
-	On   interface{} `yaml:"on"`
-}
-
-type WorkflowsResponse struct {
-	Workflows []Workflow `json:"workflows"`
-}
-
-type Branch struct {
-	Name string `json:"name"`
-}
 
 type item struct {
 	title, desc string
@@ -157,72 +135,6 @@ func (m model) View() string {
 	return docStyle.Render(m.list.View())
 }
 
-// --- フィルタリングロジック ---
-func getDispatchableWorkflows() ([]list.Item, error) {
-	items := []list.Item{}
-	workflowsDir := ".github/workflows"
-
-	entries, err := os.ReadDir(workflowsDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return items, fmt.Errorf("directory %s not found", workflowsDir)
-		}
-		return items, err
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if ext != ".yml" && ext != ".yaml" {
-			continue
-		}
-
-		path := filepath.Join(workflowsDir, entry.Name())
-		content, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-
-		var wf workflowYAML
-		if err := yaml.Unmarshal(content, &wf); err != nil {
-			continue
-		}
-
-		if hasWorkflowDispatch(wf.On) {
-			title := wf.Name
-			if title == "" {
-				title = entry.Name()
-			}
-			items = append(items, item{
-				title:    title,
-				desc:     path,
-				fileName: entry.Name(),
-			})
-		}
-	}
-
-	return items, nil
-}
-
-func hasWorkflowDispatch(on interface{}) bool {
-	switch v := on.(type) {
-	case string:
-		return v == "workflow_dispatch"
-	case []interface{}: // YAML list often unmarshals to []interface{}
-		for _, item := range v {
-			if s, ok := item.(string); ok && s == "workflow_dispatch" {
-				return true
-			}
-		}
-	case map[string]interface{}:
-		_, ok := v["workflow_dispatch"]
-		return ok
-	}
-	return false
-}
-
 // --- Main ---
 func main() {
 	// 1. 実行ディレクトリのリポジトリ情報を取得
@@ -238,22 +150,30 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// 2. Workflow 一覧取得 (ローカルファイル解析)
-	wfItems, err := getDispatchableWorkflows()
+	// 2. Workflow 一覧取得 (internalパッケージを使用)
+	wfs, err := workflow.LoadDispatchableWorkflows(".github/workflows")
 	if err != nil {
 		log.Fatalf("Failed to scan workflows: %v", err)
 	}
 
-	if len(wfItems) == 0 {
+	if len(wfs) == 0 {
 		fmt.Println("No workflows with 'workflow_dispatch' trigger found in .github/workflows.")
 		return
 	}
 
+	wfItems := []list.Item{}
+	for _, wf := range wfs {
+		wfItems = append(wfItems, item{
+			title:    wf.Name,
+			desc:     wf.Path,
+			fileName: wf.FileName,
+		})
+	}
+
 	// 3. Branch 一覧取得
-	var brRes []Branch
-	err = client.Get(fmt.Sprintf("repos/%s/%s/branches", owner, repo), &brRes)
+	brRes, err := branch.FetchBranches(client, owner, repo)
 	if err != nil {
-		log.Fatal("Failed to fetch branches: ", err)
+		log.Fatal(err)
 	}
 
 	brItems := []list.Item{}
@@ -295,29 +215,18 @@ func main() {
 		// ファイル名を使用
 		workflowFile := finalModel.selectedWorkflow.fileName
 
-		dispatchEndpoint := fmt.Sprintf("repos/%s/%s/actions/workflows/%s/dispatches",
-			finalModel.owner, finalModel.repo, workflowFile)
-
-		payload := map[string]interface{}{
-			"ref": finalModel.selectedBranch.title,
+		params := workflow.DispatchParams{
+			Owner:        finalModel.owner,
+			Repo:         finalModel.repo,
+			WorkflowFile: workflowFile,
+			Ref:          finalModel.selectedBranch.title,
 		}
 
-		jsonBody, _ := json.Marshal(payload)
-		resp, err := client.Request(http.MethodPost, dispatchEndpoint, bytes.NewBuffer(jsonBody))
-
+		err := workflow.RunDispatch(client, params)
 		if err != nil {
 			log.Fatalf("❌ Failed to dispatch: %v", err)
 		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil {
-				log.Println("failed to close body:", err)
-			}
-		}()
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			fmt.Println("✅ Successfully dispatched! Check your Actions tab.")
-		} else {
-			fmt.Printf("❌ Failed with status: %d\n", resp.StatusCode)
-		}
+		fmt.Println("✅ Successfully dispatched! Check your Actions tab.")
 	}
 }
