@@ -170,7 +170,7 @@ func TestCreateDispatchRequest(t *testing.T) {
 				t.Errorf("createDispatchRequest() endpoint = %v, want %v", gotEndpoint, tt.wantEndpoint)
 			}
 
-			var payload map[string]interface{}
+			var payload map[string]any
 			if err := json.Unmarshal(gotBody, &payload); err != nil {
 				t.Fatalf("createDispatchRequest() returned invalid JSON: %v", err)
 			}
@@ -185,7 +185,7 @@ func TestCreateDispatchRequest(t *testing.T) {
 func TestHasWorkflowDispatch(t *testing.T) {
 	tests := []struct {
 		name string
-		on   interface{}
+		on   any
 		want bool
 	}{
 		{
@@ -200,22 +200,22 @@ func TestHasWorkflowDispatch(t *testing.T) {
 		},
 		{
 			name: "list with workflow_dispatch",
-			on:   []interface{}{"push", "workflow_dispatch"},
+			on:   []any{"push", "workflow_dispatch"},
 			want: true,
 		},
 		{
 			name: "list without workflow_dispatch",
-			on:   []interface{}{"push", "pull_request"},
+			on:   []any{"push", "pull_request"},
 			want: false,
 		},
 		{
 			name: "map with workflow_dispatch key",
-			on:   map[string]interface{}{"workflow_dispatch": nil, "push": nil},
+			on:   map[string]any{"workflow_dispatch": nil, "push": nil},
 			want: true,
 		},
 		{
 			name: "map without workflow_dispatch key",
-			on:   map[string]interface{}{"push": nil, "pull_request": nil},
+			on:   map[string]any{"push": nil, "pull_request": nil},
 			want: false,
 		},
 		{

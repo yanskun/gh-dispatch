@@ -9,11 +9,11 @@ import (
 
 // mockRESTClient は branch.RESTClient のモックです
 type mockRESTClient struct {
-	ResponseData interface{}
+	ResponseData any
 	Error        error
 }
 
-func (m *mockRESTClient) Get(path string, response interface{}) error {
+func (m *mockRESTClient) Get(path string, response any) error {
 	if m.Error != nil {
 		return m.Error
 	}

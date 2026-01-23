@@ -6,7 +6,7 @@ import (
 
 // RESTClient はAPIリクエストを行うためのインターフェース
 type RESTClient interface {
-	Get(path string, response interface{}) error
+	Get(path string, response any) error
 }
 
 // Branch はブランチの基本情報を表します

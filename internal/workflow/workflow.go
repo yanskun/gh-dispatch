@@ -27,8 +27,8 @@ type Workflow struct {
 
 // workflowYAML はYAMLファイルのパース用構造体
 type workflowYAML struct {
-	Name string      `yaml:"name"`
-	On   interface{} `yaml:"on"`
+	Name string `yaml:"name"`
+	On   any    `yaml:"on"`
 }
 
 // DispatchParams はワークフロー実行リクエストに必要なパラメータ
@@ -88,17 +88,17 @@ func LoadDispatchableWorkflows(workflowsDir string) ([]Workflow, error) {
 }
 
 // hasWorkflowDispatch はトリガー設定に workflow_dispatch が含まれているか判定します
-func hasWorkflowDispatch(on interface{}) bool {
+func hasWorkflowDispatch(on any) bool {
 	switch v := on.(type) {
 	case string:
 		return v == "workflow_dispatch"
-	case []interface{}:
+	case []any:
 		for _, item := range v {
 			if s, ok := item.(string); ok && s == "workflow_dispatch" {
 				return true
 			}
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		_, ok := v["workflow_dispatch"]
 		return ok
 	}
@@ -120,7 +120,7 @@ func createDispatchRequest(params DispatchParams) (string, []byte, error) {
 	endpoint := fmt.Sprintf("repos/%s/%s/actions/workflows/%s/dispatches",
 		params.Owner, params.Repo, params.WorkflowFile)
 
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"ref": params.Ref,
 	}
 
