@@ -23,6 +23,16 @@ type Workflow struct {
 	Name     string
 	Path     string
 	FileName string
+	Inputs   map[string]Input
+}
+
+// Input はworkflow_dispatchのinput定義を表します
+type Input struct {
+	Description string   `yaml:"description"`
+	Required    bool     `yaml:"required"`
+	Default     string   `yaml:"default"`
+	Type        string   `yaml:"type"`
+	Options     []string `yaml:"options"`
 }
 
 // workflowYAML はYAMLファイルのパース用構造体
@@ -37,6 +47,7 @@ type DispatchParams struct {
 	Repo         string
 	WorkflowFile string
 	Ref          string
+	Inputs       map[string]string
 }
 
 // LoadDispatchableWorkflows は指定ディレクトリ内の workflow_dispatch を持つワークフローを検索します
@@ -71,15 +82,21 @@ func LoadDispatchableWorkflows(workflowsDir string) ([]Workflow, error) {
 			continue
 		}
 
-		if hasWorkflowDispatch(wf.On) {
+		inputs := extractInputs(wf.On)
+		if inputs != nil || hasWorkflowDispatch(wf.On) {
 			title := wf.Name
 			if title == "" {
 				title = entry.Name()
 			}
+
+			// 相対パスに変換 (.github/workflows/xxx.yml)
+			relativePath := filepath.Join(".github", "workflows", entry.Name())
+
 			workflows = append(workflows, Workflow{
 				Name:     title,
-				Path:     path,
+				Path:     relativePath,
 				FileName: entry.Name(),
+				Inputs:   inputs,
 			})
 		}
 	}
@@ -105,6 +122,71 @@ func hasWorkflowDispatch(on any) bool {
 	return false
 }
 
+// extractInputs は workflow_dispatch の inputs を抽出します
+func extractInputs(on any) map[string]Input {
+	m, ok := on.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	wd, ok := m["workflow_dispatch"]
+	if !ok {
+		return nil
+	}
+
+	wdMap, ok := wd.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	inputsRaw, ok := wdMap["inputs"]
+	if !ok {
+		return nil
+	}
+
+	inputsMap, ok := inputsRaw.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	inputs := make(map[string]Input)
+	for key, val := range inputsMap {
+		inputMap, ok := val.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		input := Input{}
+		if desc, ok := inputMap["description"].(string); ok {
+			input.Description = desc
+		}
+		if req, ok := inputMap["required"].(bool); ok {
+			input.Required = req
+		}
+		if def, ok := inputMap["default"].(string); ok {
+			input.Default = def
+		}
+		if typ, ok := inputMap["type"].(string); ok {
+			input.Type = typ
+		}
+		if opts, ok := inputMap["options"].([]any); ok {
+			for _, opt := range opts {
+				if optStr, ok := opt.(string); ok {
+					input.Options = append(input.Options, optStr)
+				}
+			}
+		}
+
+		inputs[key] = input
+	}
+
+	if len(inputs) == 0 {
+		return nil
+	}
+
+	return inputs
+}
+
 // createDispatchRequest はAPIエンドポイントとJSONペイロードを構築・検証します
 func createDispatchRequest(params DispatchParams) (string, []byte, error) {
 	if params.Owner == "" || params.Repo == "" {
@@ -122,6 +204,10 @@ func createDispatchRequest(params DispatchParams) (string, []byte, error) {
 
 	payload := map[string]any{
 		"ref": params.Ref,
+	}
+
+	if len(params.Inputs) > 0 {
+		payload["inputs"] = params.Inputs
 	}
 
 	body, err := json.Marshal(payload)

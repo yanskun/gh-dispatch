@@ -1,0 +1,29 @@
+name: Test with Inputs
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+        default: 'development'
+      version:
+        description: 'Version to deploy'
+        required: false
+        type: string
+        default: 'latest'
+      dry_run:
+        description: 'Dry run mode'
+        required: false
+        type: string
+        default: 'false'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo inputs
+        run: |
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Version: ${{ inputs.version }}"
+          echo "Dry run: ${{ inputs.dry_run }}"
