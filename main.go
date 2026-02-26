@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -110,6 +111,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// inputs 入力中の処理
+		if m.state == enteringInputs {
+			if msg.String() == "enter" {
+				// 現在の入力を保存
+				key := m.inputKeys[m.currentInputIdx]
+				if m.inputBuffer == "" && m.workflowInputs[key].Default != "" {
+					m.userInputs[key] = m.workflowInputs[key].Default
+				} else {
+					m.userInputs[key] = m.inputBuffer
+				}
+				m.inputBuffer = ""
+
+				// 次の入力へ
+				m.currentInputIdx++
+				if m.currentInputIdx >= len(m.inputKeys) {
+					m.state = confirming
+				}
+				return m, nil
+			} else if msg.String() == "backspace" {
+				if len(m.inputBuffer) > 0 {
+					_, size := utf8.DecodeLastRuneInString(m.inputBuffer)
+					m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-size]
+				}
+				return m, nil
+			}
+			// 通常の文字入力（マルチバイト文字・IME確定も含む）
+			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+				m.inputBuffer += string(msg.Runes)
+				return m, nil
+			}
+			return m, nil
+		}
+
 		if msg.String() == "enter" {
 			i, ok := m.list.SelectedItem().(item)
 			if !ok {
@@ -151,35 +185,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.state = confirming
 				}
-				return m, nil
-			}
-		}
-
-		// inputs 入力中の処理
-		if m.state == enteringInputs {
-			if msg.String() == "enter" {
-				// 現在の入力を保存
-				key := m.inputKeys[m.currentInputIdx]
-				if m.inputBuffer == "" && m.workflowInputs[key].Default != "" {
-					m.userInputs[key] = m.workflowInputs[key].Default
-				} else {
-					m.userInputs[key] = m.inputBuffer
-				}
-				m.inputBuffer = ""
-
-				// 次の入力へ
-				m.currentInputIdx++
-				if m.currentInputIdx >= len(m.inputKeys) {
-					m.state = confirming
-				}
-				return m, nil
-			} else if msg.String() == "backspace" {
-				if len(m.inputBuffer) > 0 {
-					m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-				}
-				return m, nil
-			} else if len(msg.String()) == 1 {
-				m.inputBuffer += msg.String()
 				return m, nil
 			}
 		}
