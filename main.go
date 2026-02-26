@@ -141,6 +141,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputBuffer += string(msg.Runes)
 				return m, nil
 			}
+			if msg.Type == tea.KeySpace {
+				m.inputBuffer += " "
+				return m, nil
+			}
 			return m, nil
 		}
 
